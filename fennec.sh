@@ -1,5 +1,5 @@
 #!/bin/bash
-: PACKAGE ${PACKAGE:=org.mozilla.geckoview_example}
+: PACKAGE ${PACKAGE:=org.mozilla.firefox}
 
 sh ./clear_apps.sh
 
