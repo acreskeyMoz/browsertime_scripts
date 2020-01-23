@@ -26,4 +26,4 @@ $BROWSERTIME_BIN \
     $DEVICE_SERIAL_ARGS \
     "$@"
 
-adb -s $ANDROID_SERIAL shell am force-stop org.mozilla.geckoview_example
+adb -s $ANDROID_SERIAL shell am force-stop $PACKAGE
