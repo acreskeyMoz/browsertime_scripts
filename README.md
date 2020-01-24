@@ -1,6 +1,8 @@
 # browsertime_on_android_scripts
 Scripts to run tests with browsertime on android
 
+(e.g. geckoview_example, fennec, fenix)
+
 • Clone this repo, `chmod +x` the .sh scripts
 
 • Clone https://github.com/mozilla/browsertime
