@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: PACKAGE ${PACKAGE:=org.mozilla.fenix.beta}
+: PACKAGE ${PACKAGE:=org.mozilla.fenix}
 
 sh ./clear_apps.sh
 
