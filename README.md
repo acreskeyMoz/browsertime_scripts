@@ -3,9 +3,10 @@ Scripts to run tests with browsertime on android
 
 (e.g. geckoview_example, fennec, fenix)
 
-• Clone this repo, `chmod +x` the .sh scripts
 
 • Clone https://github.com/mozilla/browsertime
+
+• Clone this repo, `chmod +x` the .sh scripts
 
 • Configure `run_android.py`:
 
