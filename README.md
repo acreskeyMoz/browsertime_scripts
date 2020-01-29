@@ -6,6 +6,8 @@ Scripts to run tests with browsertime on android
 
 • Clone https://github.com/mozilla/browsertime
 
+• Download the latest `geckodriver` release: https://github.com/mozilla/geckodriver/releases
+
 • Clone this repo, `chmod +x` the .sh scripts
 
 • Configure `run_android.py`:
@@ -14,7 +16,7 @@ Scripts to run tests with browsertime on android
     
     android_serial
     
-    geckodriver_path
+    geckodriver_path (just downloaded)
     
     browsertime_bin (should point within the newly cloned browsertime repo)
     
