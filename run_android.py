@@ -27,6 +27,9 @@ variants = [('fennec68', 'fennec.sh', 'org.mozilla.firefox', fennec68_location, 
 
 common_options = ' '
 
+# Restore the speculative connection pool that marionette disables
+common_options += '--firefox.preference network.http.speculative-parallel-limit:6 '
+
 # Disable WebRender
 common_options += '--firefox.preference gfx.webrender.force-disabled:true '
 
