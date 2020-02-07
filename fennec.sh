@@ -1,7 +1,6 @@
 #!/bin/bash
-: PACKAGE ${PACKAGE:=org.mozilla.firefox}
 
-sh ./clear_apps.sh
+bash ./clear_apps.sh
 
 if [[ -n $ANDROID_SERIAL ]] ; then
     DEVICE_SERIAL_ARGS="--firefox.android.deviceSerial=$ANDROID_SERIAL --chrome.android.deviceSerial=$ANDROID_SERIAL"
