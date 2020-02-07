@@ -2,6 +2,7 @@
 
 apps=("org.mozilla.firefox" \
       "org.mozilla.geckoview_example" \
+      "org.mozilla.fenix" \
       "org.mozilla.fenix.beta" \
       "org.mozilla.fenix.performancetest" \
       "org.mozilla.fennec_aurora" \
