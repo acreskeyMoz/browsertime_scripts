@@ -18,6 +18,9 @@ $BROWSERTIME_BIN \
     --firefox.android.activity "org.mozilla.fenix.browser.BrowserPerformanceTestActivity" \
     --firefox.android.intentArgument=-a \
     --firefox.android.intentArgument=android.intent.action.VIEW \
+    --firefox.android.intentArgument=--ez \
+    --firefox.android.intentArgument=performancetest \
+    --firefox.android.intentArgument=true \
     --firefox.android.intentArgument=-d \
     --firefox.android.intentArgument="data:," \
     --browser firefox \
