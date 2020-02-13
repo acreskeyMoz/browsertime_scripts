@@ -19,7 +19,7 @@ fennec68_location = '~/dev/experiments/fennec_gve_fenix/binaries/fennec-68.3.0.m
 gve_location = '~/dev/experiments/fennec_gve_fenix/binaries/geckoview_example_01_09_aarch64.apk'
 fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix_02_12_aarch64.apk'
 # fenix source:
-# ttps://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
+# https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
 
 # Define the apps to test
 #  The last parameter can be a firefox pref string (e.g '--firefox.preference network.http.rcwn.enabled:false ')
