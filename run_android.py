@@ -17,15 +17,15 @@ iterations = 1
 # apk locations
 fennec68_location = '~/dev/experiments/fennec_gve_fenix/binaries/fennec-68.3.0.multi.android-aarch64.apk'
 gve_location = '~/dev/experiments/fennec_gve_fenix/binaries/geckoview_example_01_09_aarch64.apk'
-fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix_01_21_aarch64.apk'
+fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix_02_12_aarch64.apk'
 # fenix source:
-# https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.production.2020.01.21.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
+# ttps://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
 
 # Define the apps to test
 #  The last parameter can be a firefox pref string (e.g '--firefox.preference network.http.rcwn.enabled:false ')
 variants = [('fennec68', 'fennec.sh', 'org.mozilla.firefox', fennec68_location, ''),
             ('gve', 'gve.sh', 'org.mozilla.geckoview_example', gve_location, ''),
-            ('fenix', 'fenix.sh', 'org.mozilla.fenix', fenix_location, '' )]
+            ('fenix', 'fenix.sh', 'org.mozilla.firefox', fenix_location, '' )]
 
 common_options = ' '
 
