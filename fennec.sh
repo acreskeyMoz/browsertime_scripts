@@ -19,7 +19,7 @@ $BROWSERTIME_BIN \
     --firefox.android.intentArgument=-a                             \
     --firefox.android.intentArgument=android.intent.action.VIEW     \
     --firefox.android.intentArgument=-d                             \
-    --firefox.android.intentArgument="data:,"                       \
+    --firefox.android.intentArgument="$LAUNCH_URL"                  \
     --firefox.android.intentArgument=--ez                           \
     --firefox.android.intentArgument=skipstartpane                  \
     --firefox.android.intentArgument=true                           \

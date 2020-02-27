@@ -7,17 +7,19 @@ import sys
 #     For each app (name, script, package name, apk location, custom prefs)
 #        Measure pageload on the given site, n iterations
 
-host_ip = '192.168.86.21'  # for WebPageReplay
-android_serial='9C091FFBA000BP'
+host_ip = '192.168.86.21'  # only needed for WebPageReplay
+android_serial='89PX0DD5W'
 geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
 browsertime_bin='/Users/acreskey/tools/mozilla_browsertime/browsertime/bin/browsertime.js'
 
 iterations = 1
+launch_url = "data:,"
+testScript = "preload.js"
 
 # apk locations
 fennec68_location = '~/dev/experiments/fennec_gve_fenix/binaries/fennec-68.3.0.multi.android-aarch64.apk'
 gve_location = '~/dev/experiments/fennec_gve_fenix/binaries/geckoview_example_01_09_aarch64.apk'
-fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix_02_12_aarch64.apk'
+fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix.v2.fennec-production.2020.02.26.apk'
 # fenix source:
 # ttps://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
 
@@ -26,6 +28,7 @@ fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix_02_12_aarch6
 variants = [('fennec68', 'fennec.sh', 'org.mozilla.firefox', fennec68_location, ''),
             ('gve', 'gve.sh', 'org.mozilla.geckoview_example', gve_location, ''),
             ('fenix', 'fenix.sh', 'org.mozilla.firefox', fenix_location, '' )]
+
 
 common_options = ' '
 
@@ -44,7 +47,6 @@ common_options += '--firefox.preference gfx.webrender.force-disabled:true '
 def main():
 
     common_args = common_options + '--pageCompleteWaitTime 10000 '
-    common_args += ' preload.js '
 
     common_args += '-n %d ' % iterations 
     common_args += '--visualMetrics true --video true --firefox.windowRecorder false '
@@ -65,7 +67,12 @@ def main():
             apk_location = variant[3]
             options = variant[4]
 
-            env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s ' %(android_serial, package_name, geckodriver_path, browsertime_bin)
+            # Cold start applink test? uncomment these and disable visual metrics/video
+            # launch_url = url
+            # testScript = "applink.js"
+            # options += ' --processStartTime '
+
+            env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
     
             print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + options)
             os.system('adb uninstall ' + package_name)
@@ -73,8 +80,8 @@ def main():
             install_cmd = 'adb install ' + apk_location
             print(install_cmd)
             os.system(install_cmd)
-
-            completeCommand = env + ' bash ' + script + ' ' + common_args + options + url_arg + result_arg + name +'" '
+            
+            completeCommand = env + ' bash ' + script + ' ' + common_args + testScript +  ' ' + options + url_arg + result_arg + name +'" '
             print( "\ncommand " + completeCommand)
             os.system(completeCommand)
 

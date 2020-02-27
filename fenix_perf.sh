@@ -22,7 +22,7 @@ $BROWSERTIME_BIN \
     --firefox.android.intentArgument=performancetest \
     --firefox.android.intentArgument=true \
     --firefox.android.intentArgument=-d \
-    --firefox.android.intentArgument="data:," \
+    --firefox.android.intentArgument="$LAUNCH_URL" \
     --browser firefox \
     $DEVICE_SERIAL_ARGS \
     "$@"
