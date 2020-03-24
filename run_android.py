@@ -29,6 +29,8 @@ variants = [('fennec68', 'fennec.sh', 'org.mozilla.firefox', fennec68_location, 
             ('gve', 'gve.sh', 'org.mozilla.geckoview_example', gve_location, ''),
             ('fenix', 'fenix.sh', 'org.mozilla.firefox', fenix_location, '' )]
 
+# Chrome
+# variants = [ ('chrome', 'chrome.sh', 'com.android.chrome', '', '' )]
 
 common_options = ' '
 
@@ -75,11 +77,14 @@ def main():
             env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
     
             print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + options)
-            os.system('adb uninstall ' + package_name)
+            if apk_location:
+                        uninstall_cmd = 'adb uninstall ' + package_name
+                        print(uninstall_cmd)
+                        os.system(uninstall_cmd)
 
-            install_cmd = 'adb install ' + apk_location
-            print(install_cmd)
-            os.system(install_cmd)
+                        install_cmd = 'adb install ' + apk_location
+                        print(install_cmd)
+                        os.system(install_cmd)
             
             completeCommand = env + ' bash ' + script + ' ' + common_args + testScript +  ' ' + options + url_arg + result_arg + name +'" '
             print( "\ncommand " + completeCommand)
