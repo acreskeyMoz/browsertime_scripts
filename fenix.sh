@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export adb_bin="~/.mozbuild/android-sdk-linux/platform-tools/adb"
+
 bash ./clear_apps.sh
 
 if [[ -n $ANDROID_SERIAL ]] ; then
@@ -24,7 +26,8 @@ $BROWSERTIME_BIN \
     --firefox.android.intentArgument=-d \
     --firefox.android.intentArgument="$LAUNCH_URL" \
     --browser firefox \
+    --firefox.binaryPath=/tmp/foo \
     $DEVICE_SERIAL_ARGS \
     "$@"
 
-adb -s $ANDROID_SERIAL shell am force-stop $PACKAGE
+$adb_bin -s $ANDROID_SERIAL shell am force-stop $PACKAGE

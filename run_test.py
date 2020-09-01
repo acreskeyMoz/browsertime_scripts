@@ -11,9 +11,9 @@ import time
 #        Measure pageload on the given site, n iterations
 
 # Customize these paths, or pass by argument
-browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
-geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
-android_serial='89PX0DD5Waa'
+#browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
+#geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
+#android_serial='89PX0DD5Waa'
 
 
 global options
@@ -43,19 +43,14 @@ parser.add_argument(
     "--sites",
     help="File of sites",
 )
+
 parser.add_argument(
     "--serial",
     help="Android serial #",
 )
 
 parser.add_argument(
-    "--desktop",
-    action="store_true",
-    default=False,
-    help="Desktop or mobile",
-)
-
-parser.add_argument(
+    "--path",
     "--binarypath",
     help="path to firefox binary (desktop)",
 )
@@ -75,17 +70,35 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--url",
+    help="specific site",
+)
+
+parser.add_argument(
+    "--perf",
+    action="store_true",
+    default=False,
+    help="Record a trace using perf",
+)
+
+parser.add_argument(
     "--profile",
     action="store_true",
     default=False,
     help="Enable profiling",
 )
+<<<<<<< HEAD
 
 parser.add_argument(
     "--visualmetrics",
     action="store_true",
     default=False,
     help="Calculate visualmetrics (SI/CSI/PSI)",
+)
+
+parser.add_argument(
+    "--remoteAddr",
+    help="geckodriver target IP:port",
 )
 
 parser.add_argument(
@@ -133,6 +146,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--hdmicap",
+    action="store_true",
+    default=False,
+    help="HDMI capture from /dev/video0",
+)
+
+parser.add_argument(
     "--restart_adb",
     action="store_true",
     default=False,
@@ -147,6 +167,8 @@ if options.reload:
     preload_script = os.path.join(base, 'reload.js')
 elif options.condition:
     preload_script = os.path.join(base, 'preload.js')
+elif options.preload:
+    preload_script = base + options.preload
 else:
     preload_script = os.path.join('preload_slim.js')
 
@@ -203,14 +225,20 @@ if options.fullscreen:
 
 # Gecko profiling?
 if (options.profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" '
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" --firefox.geckoProfilerParams.bufferSize 100000000 '
 
 if options.debug:
     common_options += '-vvv '
 
 if options.visualmetrics:
-    common_options += '--visualMetrics true --video true --visualMetricsContentful true --visualMetricsPerceptual true --firefox.windowRecorder false '
+    common_options += '--visualMetrics true --video true --visualMetricsContentful true --visualMetricsPerceptual true '
     common_options += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo false '
+    if options.hdmicapture:
+        common_args += '--videoParams.captureCardHostOS linux --videoParams.captureCardFilename /tmp/output.mp4 '
+        common_args += '--firefox.windowRecorder=false '
+    else:
+        #XXX Add option for   --firefox.windowRecorder false
+        common_args += '--firefox.windowRecorder=true '
 else:
     common_options += '--visualMetrics false '
 
@@ -231,6 +259,9 @@ if options.desktop:
         firefox_binary_path = options.binarypath
     else:
         firefox_binary_path = '/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
+
+if options.remoteAddr != None:
+    common_args += '--selenium.url http://' + options.remoteAddr + ' '
 
 if options.wpr_host_ip != None:
     print("Adding WebPageReplay options", flush=True)
