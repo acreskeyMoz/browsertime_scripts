@@ -7,27 +7,41 @@ import sys
 #     For each app (name, script, package name, apk location, custom prefs)
 #        Measure pageload on the given site, n iterations
 
-host_ip = '192.168.86.21'  # only needed for WebPageReplay
-android_serial='89PX0DD5W'
-geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
-browsertime_bin='/Users/acreskey/tools/mozilla_browsertime/browsertime/bin/browsertime.js'
+arm64=True
 
 iterations = 1
 launch_url = "data:,"
 testScript = "preload.js"
 
-# apk locations
-fennec68_location = '~/dev/experiments/fennec_gve_fenix/binaries/fennec-68.3.0.multi.android-aarch64.apk'
-gve_location = '~/dev/experiments/fennec_gve_fenix/binaries/geckoview_example_01_09_aarch64.apk'
-fenix_location = '~/dev/experiments/fennec_gve_fenix/binaries/fenix.v2.fennec-production.2020.02.26.apk'
+base = os.path.dirname(os.path.realpath(__file__))
+host_ip = '192.168.86.21'  # for WebPageReplay
+if (arm64):
+    android_serial='9B121FFBA0031R'
+else:
+    android_serial='ZY322LH8WX'
+geckodriver_path = base + 'geckodriver'
+browsertime_bin='/home/jesup/src/mozilla/geckoview/tools/browsertime/node_modules/browsertime/bin/browsertime.js'
+adb_bin='~/.mozbuild/android-sdk-linux/platform-tools/adb'
+
+if (arm64):
+    fennec68_location = base + 'fennec-68.3.0.multi.android-aarch64.apk'
+    gve_location = base + 'geckoview_example_02_03_aarch64.apk'
+    fenix_beta_location = base + 'fenix_02_08_fennec-aarch64.apk'
+#    fenix_beta_location = base + 'fenix_andrew.apk'    
+    fenix_performance_location = base + 'fenix_taskcluster_2_6_aarch64.apk'
+else:
+    fennec68_location = base + 'fennec-68.3.0.multi.android-arm.apk'
+    gve_location = base + 'geckoview_example_02_03_arm32.apk'
+    fenix_beta_location = base + 'fenix_andrew_arm32.apk'
+
 # fenix source:
-# ttps://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/geckoBeta/target.apk
+# https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.mobile.fenix.v2.fennec-production.2020.02.12.latest/artifacts/public/build/arm64-v8a/gennckoBeta/target.apk
 
 # Define the apps to test
 #  The last parameter can be a firefox pref string (e.g '--firefox.preference network.http.rcwn.enabled:false ')
 variants = [('fennec68', 'fennec.sh', 'org.mozilla.firefox', fennec68_location, ''),
             ('gve', 'gve.sh', 'org.mozilla.geckoview_example', gve_location, ''),
-            ('fenix', 'fenix.sh', 'org.mozilla.firefox', fenix_location, '' )]
+            ('fenix', 'fenix.sh', 'org.mozilla.firefox', fenix_beta_location, '' )]
 
 # Chrome
 # variants = [ ('chrome', 'chrome.sh', 'com.android.chrome', '', '' )]
@@ -44,17 +58,18 @@ common_options += '--firefox.preference gfx.webrender.force-disabled:true '
 #common_options += '--firefox.preference network.dns.forceResolve:' + host_ip + ' --firefox.acceptInsecureCerts true '
 
 # Gecko profiling?
-#common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" '
+#common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 5  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" '
 
 def main():
 
-    common_args = common_options + '--pageCompleteWaitTime 10000 '
+    common_args = common_options + '--pageCompleteWaitTime 5000 '
+    common_args += ' ' +  base + 'preload.js '
 
     common_args += '-n %d ' % iterations 
     common_args += '--visualMetrics true --video true --firefox.windowRecorder false '
     common_args += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo true '
 
-    file = open('sites.txt', 'r')
+    file = open(base + 'sites.txt', 'r')
     for line in file:
         url = line.strip()
 
@@ -78,11 +93,11 @@ def main():
     
             print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + options)
             if apk_location:
-                        uninstall_cmd = 'adb uninstall ' + package_name
+                        uninstall_cmd = adb_bin + ' uninstall ' + package_name
                         print(uninstall_cmd)
                         os.system(uninstall_cmd)
 
-                        install_cmd = 'adb install ' + apk_location
+                        install_cmd = adb_bin + ' install ' + apk_location
                         print(install_cmd)
                         os.system(install_cmd)
             
