@@ -28,9 +28,3 @@ Scripts to run tests with browsertime on android
 
 • Run with `python run_android.py`
 
------------------------
-
-## Cold Start Applink tests (w.i.p)
-• Uncomment [these lines](https://github.com/acreskeyMoz/browsertime_on_android_scripts
-/blob/4f15056b96a9db5be5c4f6807cfcd98fc87c4c30/run_android.py#L70-L73), and also be sure to disabled visual metric and video
-• Results are logged `(navigationStartTime - processStartTime)`, and also stored in the json as `browserScripts.pageinfo.processTimeShift`
