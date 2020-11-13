@@ -1,6 +1,9 @@
 #!/bin/bash
-# XXX get where this script was loaded from instead
+# N.B.: yargs doesn't parse `--firefox.android.intentArgument --ez`
+# properly, so always use `=--ez`!
+
 BASE='/home/jesup/src/mozilla/browsertime_on_android_scripts/'
+REPO='/home/jesup/src/mozilla/pageload/'
 
 if test $PERF; then
     SCRIPT=${BASE}perf.sh

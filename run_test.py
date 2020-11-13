@@ -50,9 +50,21 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--path",
     "--binarypath",
+    "--path",
     help="path to firefox binary (desktop)",
+)
+
+parser.add_argument(
+    "--use_wpr",
+    help="connect to WPR replay IP",
+)
+
+parser.add_argument(
+    "--desktop",
+    action="store_true",
+    default=False,
+    help="Desktop or mobile",
 )
 
 parser.add_argument(
@@ -87,7 +99,6 @@ parser.add_argument(
     default=False,
     help="Enable profiling",
 )
-<<<<<<< HEAD
 
 parser.add_argument(
     "--visualmetrics",
@@ -158,10 +169,14 @@ parser.add_argument(
     default=False,
     help="Restart adb between variants (workaround to adb file descriptor leak)",
 )
+parser.add_argument(
+    "--prefs",
+    help="prefs to use for all runs",
+)
 
 options = parser.parse_args()
 
-base = os.path.dirname(os.path.realpath(__file__))
+base = os.path.dirname(os.path.realpath(__file__)) + '/'
 
 if options.reload:
     preload_script = os.path.join(base, 'reload.js')
@@ -203,6 +218,11 @@ else:
 additional_prefs = options.prefs
 if additional_prefs != None:
     print("Additional_prefs = " + additional_prefs, flush=True)
+
+if options.use_wpr != None:
+    host_ip = options.use_wpr
+else:
+    host_ip = None
 
 launch_url = "data:,"
 
@@ -266,6 +286,9 @@ if options.remoteAddr != None:
 if options.wpr_host_ip != None:
     print("Adding WebPageReplay options", flush=True)
     common_options += '--firefox.preference network.dns.forceResolve:' + options.wpr_host_ip + ' --firefox.preference network.socket.forcePort:"80=4040;443=4041"' + ' --firefox.acceptInsecureCerts true '
+
+if options.perf:
+    env += " PERF=1"
 
 def main():
 
