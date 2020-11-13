@@ -12,7 +12,7 @@ global options
 
 parser = argparse.ArgumentParser(
     description="",
-    prog="run_linux",
+    prog="run_test",
 )
 parser.add_argument(
     "--debug",
@@ -35,6 +35,22 @@ parser.add_argument(
 parser.add_argument(
     "--url",
     help="specific site",
+)
+parser.add_argument(
+    "--use_wpr",
+    help="connect to WPR replay IP",
+)
+parser.add_argument(
+    "--reload",
+    action="store_true",
+    default=False,
+    help="test reload of the URL",
+)
+parser.add_argument(
+    "--condition",
+    action="store_true",
+    default=False,
+    help="load a site before the target URL",
 )
 parser.add_argument(
     "--desktop",
@@ -84,10 +100,14 @@ parser.add_argument(
     "--path",
     help="path to firefox on the target",
 )
+parser.add_argument(
+    "--prefs",
+    help="prefs to use for all runs",
+)
 
 options = parser.parse_args()
 
-base = os.path.dirname(os.path.realpath(__file__))
+base = os.path.dirname(os.path.realpath(__file__)) + '/'
 
 remoteAddr = options.remoteAddr
 visualmetrics = options.visualmetrics
@@ -96,16 +116,32 @@ iterations = options.iterations
 debug = options.debug
 webrender = options.webrender
 profile = options.profile
+additional_prefs = options.prefs
+if additional_prefs != None:
+    print("Additional_prefs = " + additional_prefs, flush=True);
 if options.sites != None:
     sites = options.sites
 else:
     sites = base + "sites.txt"
 
+if options.use_wpr != None:
+    host_ip = options.use_wpr
+else:
+    host_ip = None
+
+reload = False
+if options.reload:
+    preload = base + 'reload.js'
+    reload = True
+elif options.condition:
+    preload = base + 'preload_slim.js'
+else:
+    preload = base + 'preload.js'
+    
 arm64=True
 desktop=options.desktop
 perf = options.perf
 
-host_ip = '192.168.86.21'  # for WebPageReplay
 if options.serial:
     android_serial = options.serial
 elif arm64:
@@ -138,28 +174,29 @@ if (desktop):
     if (options.path != None):
         firefox_path = options.path
     else:
-        firefox_path = '/tmp/firefox/firefox'
+        firefox_path = './obj-opt/dist/bin/firefox'
     variants = [
-        ('e10s', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  base + 'preload.js', '--firefox.preference fission.autostart:false ' )
-        ,('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  base + 'preload.js', '--firefox.preference fission.autostart:true ' )
+        ('e10s', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, ' ')
+#        ('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.keepProcessesAlive.webIsolated.timed.max:0 ' )
+        ,('fission_cached', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true ' )
     ]
 else:
   variants = [
-    ('fenix_02_28_preload', base + 'fenix_release.sh', 'org.mozilla.firefox', fenix_beta_location,  base + 'preload.js', '' )
-    ,('fenix_02_28_rel=preload', base + 'fenix_release.sh', 'org.mozilla.firefox', fenix_beta_location,  base + 'preload.js',
+    ('fenix_02_28_preload', base + 'fenix_release.sh', 'org.mozilla.firefox', fenix_beta_location,  preload, '' )
+    ,('fenix_02_28_rel=preload', base + 'fenix_release.sh', 'org.mozilla.firefox', fenix_beta_location,  preload,
       '--firefox.preference network.preload:true --firefox.preference network.preload-experimental:true ')
 
-#    ('fennec68_condprof', base + 'fennec_condprof.sh', 'org.mozilla.firefox', fennec68_location, base + 'preload_slim.js', '--firefox.disableBrowsertimeExtension ')
-#    ,('fennec68_preload', base + 'fennec.sh', 'org.mozilla.firefox', fennec68_location, base + 'preload.js', '')
-#    ,('gve', base + 'gve.sh','org.mozilla.geckoview_example', gve_location,  base + 'preload.js', '')
-#    ,('fenix_beta', base + 'fenix_beta.sh', 'org.mozilla.fenix', fenix_beta_location,  base + 'preload.js', '' )
-#    ,('fenix_02_28_condprof', base + 'fenix_release_condprof.sh', 'org.mozilla.firefox', fenix_beta_location,  base + 'preload_slim.js', '' )
-#    ,('fenix_02_28_condprof_no_extension', base + 'fenix_release_condprof.sh', 'org.mozilla.firefox', fenix_beta_location,  base + 'preload_slim.js', '--firefox.disableBrowsertimeExtension ' )
-#    ,('fenix_condprof', base + 'fenix_performancetest_condprof.sh', 'org.mozilla.fenix.performancetest', fenix_performancetest_location,  base + 'preload_slim.js', '' )
-#    ,('fenix_condprof_no_settings', base + 'fenix_performancetest_condprof.sh', 'org.mozilla.fenix.performancetest', fenix_no_settings_location,  base + 'preload_slim.js', '' )
+#    ('fennec68_condprof', base + 'fennec_condprof.sh', 'org.mozilla.firefox', fennec68_location, preload, '--firefox.disableBrowsertimeExtension ')
+#    ,('fennec68_preload', base + 'fennec.sh', 'org.mozilla.firefox', fennec68_location, preload, '')
+#    ,('gve', base + 'gve.sh','org.mozilla.geckoview_example', gve_location,  preload, '')
+#    ,('fenix_beta', base + 'fenix_beta.sh', 'org.mozilla.fenix', fenix_beta_location,  preload, '' )
+#    ,('fenix_02_28_condprof', base + 'fenix_release_condprof.sh', 'org.mozilla.firefox', fenix_beta_location, preload, '' )
+#    ,('fenix_02_28_condprof_no_extension', base + 'fenix_release_condprof.sh', 'org.mozilla.firefox', fenix_beta_location, preload, '--firefox.disableBrowsertimeExtension ' )
+#    ,('fenix_condprof', base + 'fenix_performancetest_condprof.sh', 'org.mozilla.fenix.performancetest', fenix_performancetest_location, preload, '' )
+#    ,('fenix_condprof_no_settings', base + 'fenix_performancetest_condprof.sh', 'org.mozilla.fenix.performancetest', fenix_no_settings_location,  preload, '' )
 #      '--firefox.preference javascript.options.mem.gc_low_frequency_heap_growth:5 --firefox.preference javascript.options.mem.gc_allocation_threshold_mb:100000000 ')
-#    ('fenix_performancetest', base + 'fenix_performancetest.sh', 'org.mozilla.fenix.performancetest', fenix_performance_location,  base + 'preload.js', '' )
-#    ('fenix_beta', base + 'fenix_beta.sh', 'org.mozilla.fenix.beta', fenix_beta_location,  base + 'preload.js', '' )
+#    ('fenix_performancetest', base + 'fenix_performancetest.sh', 'org.mozilla.fenix.performancetest', fenix_performance_location,  preload, '' )
+#    ('fenix_beta', base + 'fenix_beta.sh', 'org.mozilla.fenix.beta', fenix_beta_location,  preload, '' )
    ]
 
 common_options = ' '
@@ -182,28 +219,41 @@ else:
 #common_options += '--firefox.preference network.preload-experimental:true '
 
 # Use WebPageReplay?
-#common_options += '--firefox.preference network.dns.forceResolve:' + host_ip + ' --firefox.acceptInsecureCerts true '
+if host_ip != None:
+    common_options += '--firefox.preference network.dns.forceResolve:' + host_ip + ' --firefox.preference network.socket.forcePort:"80=4040;443=4041"' + ' --firefox.acceptInsecureCerts true ' 
 
 # Gecko profiling?
 if (profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features "js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,Socket,IO" --firefox.geckoProfilerParams.bufferSize 100000000 '
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features js,stackwalk,leaf --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,Socket,IO" --firefox.geckoProfilerParams.bufferSize 100000000 '
 
 def main():
 
-    print('Running... (path =' + firefox_path)
+    print('Running... (path =' + firefox_path, flush=True)
     env = 'env ANDROID_SERIAL=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s FIREFOX_BINARY_LOCATION=%s' %(android_serial, geckodriver_path, browsertime_bin, firefox_path)
     if perf:
         env += " PERF=1"
 
-    common_args = '-n %d ' % iterations 
-    common_args += common_options + '--viewPort maximize '
-    common_args += common_options + '--pageCompleteWaitTime 5000 '
+    common_args = common_options + '-n %d ' % iterations 
+    common_args += '--viewPort maximize '
+    common_args += '--pageCompleteWaitTime 5000 '
 
     if debug:
         common_args += '-vvv '
 
+    if reload:
+        common_args += '--reload '
+        common_args += '--firefox.preference dom.ipc.keepProcessesAlive.webIsolated.timed.max:30 '
+
+    if additional_prefs != None:
+        wordlist = additional_prefs.split()
+        for pref in wordlist:
+            common_args += '--firefox.preference ' + pref + ' '
+            print('Added "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+
     if (remoteAddr != None):
         common_args += '--selenium.url http://' + remoteAddr + ' '
+        common_args += common_options + '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
+
     if (visualmetrics):
         common_args += '--visualMetrics=true --video=true '
         common_args += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo true '
