@@ -173,6 +173,16 @@ parser.add_argument(
     "--prefs",
     help="prefs to use for all runs",
 )
+parser.add_argument(
+    "--prefs_variant",
+    help="prefs to use for a second run of everything",
+)
+parser.add_argument(
+    "--fullscreen",
+    action="store_true",
+    default=False,
+    help="Run test in full-screen",
+)
 
 options = parser.parse_args()
 
@@ -281,14 +291,17 @@ if options.desktop:
         firefox_binary_path = '/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
 
 if options.remoteAddr != None:
-    common_args += '--selenium.url http://' + options.remoteAddr + ' '
+    # reference laptops are slow
+    common_args += '--selenium.url http://' + options.remoteAddr + ' ' + '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
 
 if options.wpr_host_ip != None:
     print("Adding WebPageReplay options", flush=True)
     common_options += '--firefox.preference network.dns.forceResolve:' + options.wpr_host_ip + ' --firefox.preference network.socket.forcePort:"80=4040;443=4041"' + ' --firefox.acceptInsecureCerts true '
 
 if options.perf:
-    env += " PERF=1"
+    env_perf = "PERF=1 "
+else:
+    env_perf = ""
 
 def main():
 
@@ -321,7 +334,7 @@ def main():
                     os.system('adb kill-server')
                     os.system('adb devices')
 
-                env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
+                env = env_perf + 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
                 print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + variant_options)
                 if apk_location:
                     uninstall_cmd = 'adb uninstall ' + package_name
