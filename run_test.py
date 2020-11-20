@@ -104,6 +104,16 @@ parser.add_argument(
     "--prefs",
     help="prefs to use for all runs",
 )
+parser.add_argument(
+    "--prefs_variant",
+    help="prefs to use for a second run of everything",
+)
+parser.add_argument(
+    "--fullscreen",
+    action="store_true",
+    default=False,
+    help="Run test in full-screen",
+)
 
 options = parser.parse_args()
 
@@ -116,9 +126,9 @@ iterations = options.iterations
 debug = options.debug
 webrender = options.webrender
 profile = options.profile
+fullscreen = options.fullscreen
 additional_prefs = options.prefs
-if additional_prefs != None:
-    print("Additional_prefs = " + additional_prefs, flush=True);
+additional_variant_prefs = options.prefs_variant
 if options.sites != None:
     sites = options.sites
 else:
@@ -206,6 +216,7 @@ common_options += '--firefox.preference network.http.speculative-parallel-limit:
 
 if (webrender):
     # Enable WebRender
+    print('webrender on', flush=True)
     common_options += '--firefox.preference gfx.webrender.enabled:true '
 else:
     # Disable WebRender
@@ -227,14 +238,16 @@ if (profile):
     common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features js,stackwalk,leaf --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,Socket,IO" --firefox.geckoProfilerParams.bufferSize 100000000 '
 
 def main():
-
+    global variants
+    
     print('Running... (path =' + firefox_path, flush=True)
     env = 'env ANDROID_SERIAL=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s FIREFOX_BINARY_LOCATION=%s' %(android_serial, geckodriver_path, browsertime_bin, firefox_path)
     if perf:
         env += " PERF=1"
 
-    common_args = common_options + '-n %d ' % iterations 
-    common_args += '--viewPort maximize '
+    common_args = common_options + '-n %d ' % iterations
+    if fullscreen:
+        common_args += '--viewPort maximize '
     common_args += '--pageCompleteWaitTime 5000 '
 
     if debug:
@@ -249,6 +262,26 @@ def main():
         for pref in wordlist:
             common_args += '--firefox.preference ' + pref + ' '
             print('Added "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+
+    if additional_variant_prefs != None:
+        variant_args = ""
+        wordlist = additional_variant_prefs.split()
+        for pref in wordlist:
+            variant_args += '--firefox.preference ' + pref + ' '
+            print('Added variant "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+        # add more variants
+        additional_variants = []
+
+        for variant in variants:
+            temp = list(variant)
+            temp[5] = temp[5] + variant_args
+            temp[0] += "_plus_prefs"
+            additional_variants.append(tuple(temp))
+        print('Final prefs for : ' + temp[0] + ' ' + temp[5], flush=True)
+        variants.extend(additional_variants)
+        for variant in variants:
+            print(variant[0], flush=True)
+            
 
     if (remoteAddr != None):
         common_args += '--selenium.url http://' + remoteAddr + ' '
@@ -268,30 +301,30 @@ def main():
     for line in file:
         url = line.strip()
 
-        print('Loading url: ' + url + ' with browsertime')
+        print('Loading url: ' + url + ' with browsertime', flush=True)
         url_arg = '--browsertime.url \"' + url + '\" '
         result_arg = '--resultDir "browsertime-results/' + cleanUrl(url) + '/'
 
         for variant in variants:
-            name = variant[0]
-            script = variant[1]
-            package_name = variant[2]
-            apk_location = variant[3]
-            preload = variant[4]
-            options = variant[5]
+            name = str(variant[0])
+            script = str(variant[1])
+            package_name = str(variant[2])
+            apk_location = str(variant[3])
+            preload = str(variant[4])
+            options = str(variant[5])
 
             if (desktop):
-                print('Starting ' + name + ' with arguments ' + options)
+                print('Starting ' + name + ' with arguments ' + options, flush=True)
             else:
-                print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + options)
+                print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + options, flush=True)
                 os.system(adb_bin + ' uninstall ' + package_name)
 
                 install_cmd = adb_bin + ' install -d -r ' + apk_location
-                print(install_cmd)
+                print(install_cmd, flush=True)
                 os.system(install_cmd)
 
             completeCommand = env + ' bash ' + script + ' ' + common_args + preload + ' ' + options + url_arg + result_arg + name +'" '
-            print( "\ncommand " + completeCommand)
+            print( "\ncommand " + completeCommand, flush=True)
             os.system(completeCommand)
 
 
