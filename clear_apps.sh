@@ -2,10 +2,7 @@
 
 apps=("org.mozilla.firefox" \
       "org.mozilla.geckoview_example" \
-      "org.mozilla.fenix" \
-      "org.mozilla.fenix.beta" \
-      "org.mozilla.fenix.performancetest" \
-      "org.mozilla.fennec_aurora")
+      "org.mozilla.fenix" )
 
 for app in ${apps[@]}; do
   echo adb -s $ANDROID_SERIAL shell am force-stop $app
