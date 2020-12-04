@@ -1,16 +1,16 @@
 # browsertime_scripts
 
-Scripts to run local performance tests with browsertime
+Scripts to run local performance tests with browsertime.
 
-Supports desktop and android apps (e.g. geckoview_example, fennec, fenix)
+Supports desktop and android apps (e.g. geckoview_example, fennec, fenix).
 
-Steps
+## Usage ##
 
-• Clone the browsertime repo https://github.com/sitespeedio/browsertime
+• Clone the browsertime repo, https://github.com/sitespeedio/browsertime
 
 • Download the latest `geckodriver` release: https://github.com/mozilla/geckodriver/releases
 
-• Clone this repo, and  `chmod +x` the .sh scripts
+• Clone this repo, and  `chmod +x` the `.sh` scripts
 
 • Configure `run_test.py`:
 
@@ -18,8 +18,10 @@ Steps
         • geckodriver_path (point to the geckodriver binary you just downloaded)
 
 • Configure the browser variants you'd like to compare. These can be seperate binaries or else preferences.
-  See variants_android.py  or variants_desktop.py
-  For example, to compare fenix without and with HTTP/3 enabled, you may do something like this:
+
+  See `variants_android.py` or `variants_desktop.py` for examples.
+
+  For instance, to compare fenix without and with HTTP/3 enabled, you may do something like this:
 
         variants = [('fenix', 'fenix.sh', 'org.mozilla.fenix', fenix_nightly_location, ''),
                     ('fenix_h3', 'fenix.sh', 'org.mozilla.fenix', fenix_nightly_location, ' --firefox.preference network.http.http3.enabled:true' )]
