@@ -13,7 +13,6 @@ import argparse
 #FIX ME: customize these paths
 geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
 browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
-browsertime_bin='/Users/acreskey/tools/test_parent_process_nav_in_bt/browsertime/bin/browsertime.js'
 
 import importlib
 
