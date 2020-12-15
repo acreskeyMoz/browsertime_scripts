@@ -2,7 +2,7 @@
 
 Scripts to run local performance tests with browsertime.
 
-Supports desktop and android apps (e.g. geckoview_example, fennec, fenix).
+Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fenix).
 
 ## Usage ##
 
