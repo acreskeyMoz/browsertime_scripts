@@ -1,32 +1,34 @@
-import os
-import time
-import sys
 import argparse
+import importlib
+import os
+import sys
+import time
 
-
-# A script for generating performance results from browsertime
+# A script for larger browsertime performance experiments
 #   
 #  For each site in sites.txt
 #     For each app (name, script, package name, apk location, custom prefs)
 #        Measure pageload on the given site, n iterations
 
-#FIX ME: customize these paths
-geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
+# Customize these paths, or pass by argument
 browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
+geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
+android_serial='89PX0DD5Waa'
 
-import importlib
 
 global options
 parser = argparse.ArgumentParser(
     description="",
     prog="run_test",
 )
+
 parser.add_argument(
     "--debug",
     action="store_true",
     default=False,
     help="pass debugging flags to browsertime (-vvv)",
 )
+
 parser.add_argument(
     "-i",
     "-n",
@@ -35,6 +37,7 @@ parser.add_argument(
     default=3,
     help="Number of iterations",
 )
+
 parser.add_argument(
     "-s",
     "--sites",
@@ -114,6 +117,28 @@ parser.add_argument(
     help="python module with the variants defined, e.g. variants_android",
 )
 
+parser.add_argument(
+    "--geckodriver",
+    help="path to geckodriver",
+)
+
+parser.add_argument(
+    "--browsertime",
+    help="path to browsertime/bin/browsertime.js",
+)
+
+parser.add_argument(
+    "--output_path",
+    help="Path for the browsertime json (defaults to 'browsertime-results')",
+)
+
+parser.add_argument(
+    "--restart_adb",
+    action="store_true",
+    default=False,
+    help="Restart adb between variants (workaround to adb file descriptor leak)",
+)
+
 options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__))
@@ -125,11 +150,11 @@ elif options.condition:
 else:
     preload_script = os.path.join('preload_slim.js')
 
-if (options.variants != None):
+if options.variants != None:
     print('Using variant file ' + options.variants)
     variants_import = importlib.import_module(options.variants)
 else:
-    if (options.desktop):
+    if options.desktop:
         variants_import = importlib.import_module('variants_desktop')
     else:
         variants_import = importlib.import_module('variants_android')
@@ -141,8 +166,17 @@ else:
 
 if options.serial:
     android_serial = options.serial
+
+if options.geckodriver:
+    geckodriver_path = options.geckodriver
+
+if options.browsertime:
+    browsertime_bin = options.browsertime
+
+if options.output_path:
+    output_path = options.output_path
 else:
-    android_serial='89PX0DD5W'
+    output_path = 'browsertime-results'
 
 additional_prefs = options.prefs
 if additional_prefs != None:
@@ -155,9 +189,9 @@ common_options = ''
 # Restore the speculative connection pool that marionette disables
 common_options += '--firefox.preference network.http.speculative-parallel-limit:6 '
 
-if (options.webrender):
+if options.webrender:
     print("Enabling WebRender", flush=True)
-    common_options += '--firefox.preference gfx.webrender.enabled:true '
+    common_options += '--firefox.preference gfx.webrender.enabled:true --firefox.preference gfx.webrender.precache-shaders:true '
 else:
     common_options += '--firefox.preference gfx.webrender.force-disabled:true '
 
@@ -189,8 +223,8 @@ if additional_prefs != None:
         common_options += '--firefox.preference ' + pref + ' '
         print('Added "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
 
-if (options.desktop):
-    if (options.binarypath != None):
+if options.desktop:
+    if options.binarypath != None:
         firefox_binary_path = options.binarypath
     else:
         firefox_binary_path = '/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
@@ -210,14 +244,15 @@ def main():
         url = line.strip()
 
         print('Loading url: ' + url + ' with browsertime')
+
         url_arg = '--browsertime.url \"' + url + '\" '
-        result_arg = '--resultDir "browsertime-results/' + cleanUrl(url) + '/'
+        result_arg = '--resultDir "' + os.path.join(output_path, cleanUrl(url))
 
         for variant_num, variant in enumerate(variants_import.variants):
             name = variant[0]
             script = variant[1]
 
-            if (options.desktop):
+            if options.desktop:
                 env = 'env FIREFOX_BINARY_PATH="%s" GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(firefox_binary_path, geckodriver_path, browsertime_bin, launch_url)
                 variant_options = variant[2]
                 print('Starting ' + firefox_binary_path + ' with arguments ' + variant_options)
@@ -225,6 +260,11 @@ def main():
                 package_name = variant[2]
                 apk_location = variant[3]
                 variant_options = variant[4]
+
+                if options.restart_adb:
+                    print('Restarting adb')
+                    os.system('adb kill-server')
+                    os.system('adb devices')
 
                 env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
                 print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + variant_options)
