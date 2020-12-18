@@ -277,7 +277,7 @@ def main():
                     print(install_cmd)
                     os.system(install_cmd)
             
-            completeCommand = env + ' bash ' + script + ' ' + common_args + ' ' + preload_script +  ' ' + variant_options + url_arg + result_arg + name +'" '
+            completeCommand = env + ' bash ' + script + ' ' + common_args + ' ' + preload_script +  ' ' + variant_options + url_arg + os.path.join(result_arg, name) +'" '
             print( "\ncommand " + completeCommand)
 
             print_progress(site_count, len(variants_import.variants), site_num, variant_num)
