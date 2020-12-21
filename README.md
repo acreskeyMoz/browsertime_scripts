@@ -12,7 +12,7 @@ Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fe
 
 • Clone this repo, and  `chmod +x` the `.sh` scripts
 
-• Configure `run_test.py`:
+• Configure `run_test.py` to point to your browsertime and geckodriver paths (or specify them with `--browsertime` and `--geckodriver` )
 
         • browsertime_bin (point to bin/browsertime.js within the newly cloned browsertime repo)
         • geckodriver_path (point to the geckodriver binary you just downloaded)
@@ -32,27 +32,36 @@ Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fe
 
 • Additional options:
 
-    -h, --help            show this help message and exit
-    --debug               pass debugging flags to browsertime (-vvv)
-    -i ITERATIONS, -n ITERATIONS, --iterations ITERATIONS
-                            Number of iterations
-    -s SITES, --sites SITES
-                            File of sites
-    --serial SERIAL       Android serial #
-    --desktop             Desktop or mobile
-    --binarypath BINARYPATH
-                            path to firefox binary (desktop)
-    --webrender           Enable webrender (default: disabled)
-    --fullscreen          Run test in full-screen (Desktop)
-    --profile             Enable profiling
-    --visualmetrics       Calculate visualmetrics (SI/CSI/PSI)
-    --wpr_host_ip WPR_HOST_IP
-                            WebPageReplay host IP (optional)
-    --reload              test reload of the URL
-    --condition           load a site before the target URL
-    --prefs PREFS         Firefox preferences to use for all runs
-    --variants VARIANTS   python module with the variants defined, e.g.
-                            variants_android
+          -h, --help            show this help message and exit
+          --debug               pass debugging flags to browsertime (-vvv)
+          -i ITERATIONS, -n ITERATIONS, --iterations ITERATIONS
+                                Number of iterations
+          -s SITES, --sites SITES
+                                File of sites
+          --serial SERIAL       Android serial #
+          --desktop             Desktop or mobile
+          --binarypath BINARYPATH
+                                path to firefox binary (desktop)
+          --webrender           Enable webrender (default: disabled)
+          --fullscreen          Run test in full-screen (Desktop)
+          --profile             Enable profiling
+          --visualmetrics       Calculate visualmetrics (SI/CSI/PSI)
+          --wpr_host_ip WPR_HOST_IP
+                                WebPageReplay host IP (optional)
+          --reload              test reload of the URL
+          --condition           load a site before the target URL
+          --prefs PREFS         Firefox preferences to use for all runs
+          --variants VARIANTS   python module with the variants defined, e.g.
+                                variants_android
+          --geckodriver GECKODRIVER
+                                path to geckodriver
+          --browsertime BROWSERTIME
+                                path to browsertime/bin/browsertime.js
+          --output_path OUTPUT_PATH
+                                Path for the browsertime json (defaults to
+                                'browsertime-results')
+          --restart_adb         Restart adb between variants (workaround to adb file
+                                descriptor leak)
 
 ## Examples ##
 
