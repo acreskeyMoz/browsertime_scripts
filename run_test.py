@@ -210,7 +210,7 @@ if options.debug:
 
 if options.visualmetrics:
     common_options += '--visualMetrics true --video true --visualMetricsContentful true --visualMetricsPerceptual true --firefox.windowRecorder false '
-    common_options += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo true '
+    common_options += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo false '
 else:
     common_options += '--visualMetrics false '
 
