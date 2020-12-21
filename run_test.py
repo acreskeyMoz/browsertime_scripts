@@ -184,7 +184,10 @@ if additional_prefs != None:
 
 launch_url = "data:,"
 
-common_options = ''
+common_options = '--pageCompleteWaitTime 10000 '
+
+# Use the parent process initiated pagedload instead of window.location writes
+common_options += '--webdriverPageload true '
 
 # Restore the speculative connection pool that marionette disables
 common_options += '--firefox.preference network.http.speculative-parallel-limit:6 '
@@ -235,8 +238,6 @@ if options.wpr_host_ip != None:
 
 def main():
 
-    common_args = common_options + '--pageCompleteWaitTime 10000 '
-
     site_count = len(open(sites).readlines())
 
     file = open(sites, 'r')
@@ -276,8 +277,8 @@ def main():
                     install_cmd = 'adb install ' + apk_location
                     print(install_cmd)
                     os.system(install_cmd)
-            
-            completeCommand = env + ' bash ' + script + ' ' + common_args + ' ' + preload_script +  ' ' + variant_options + url_arg + result_arg + name +'" '
+
+            completeCommand = env + ' bash ' + script + ' ' + common_options  + ' ' + preload_script +  ' ' + variant_options + url_arg + os.path.join(result_arg, name) +'" '
             print( "\ncommand " + completeCommand)
 
             print_progress(site_count, len(variants_import.variants), site_num, variant_num)
