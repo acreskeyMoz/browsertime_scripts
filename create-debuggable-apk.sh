@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# LAST : 2021-03-05
+# LAST : 2021-03-05, 26
 # USE
 # ./create-debuggable-apk.sh /path/to/binary.apk
 
@@ -23,6 +23,7 @@ EXT="${filebase##*.}"
 FILE="${filebase%.*}"
 ODATE=`date +%Y%m%d`
 OFILE="$odirbase/$FILE.$ODATE.debug.apk"
+OAFILE="$odirbase/$FILE.$ODATE.debug-aligned.apk"
 
 # Condition check: find state of debug
 DEBUGP=`aapt dump badging $IFILE | grep -c application-debuggable`
@@ -67,6 +68,17 @@ if [ ! -f "$OFILE" ]; then
     exit 4;
 fi
 
+# For Android 10, needs resources.arsc to be uncompressed and 4 byte aligned.
+zipalign -f -p 4 "$OFILE" "$OAFILE"
+if [ ! -f "$OAFILE" ]; then
+    echo "could not align the debug file, exiting";
+    exit 5;
+else
+    mv "$OAFILE" "$OFILE" 
+    echo "zipalign debug file complete"
+fi
+
+
 # Self-sign so that adb can install it.
 # NB use -keypass/-storepass $KPASS to sign with password.
 ALIAS=perfdebug
@@ -76,7 +88,9 @@ if [ ! -f "$KSTORE" ]; then
     echo "Generating resign keystore..."
     keytool -genkey -v -keystore "$KSTORE" -alias "$ALIAS" -keyalg RSA -keysize 2048 -validity 10000
 fi
-jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore "$KSTORE" -storepass "$KPASS" "$OFILE" "$ALIAS"
+#jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore "$KSTORE" -storepass "$KPASS" "$OFILE" "$ALIAS"
+
+apksigner sign --ks "$KSTORE" --ks-key-alias "$ALIAS" --ks-pass pass:"$KPASS" "$OFILE"
 
 
 # Done.

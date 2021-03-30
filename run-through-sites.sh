@@ -7,13 +7,13 @@ echo `which node`
 echo `which python`
 
 DEVICEID=$1
-SCRIPT=$2
-SITES=$3
+DATESTAMP=$2
+SCRIPT=$3
+SITES=$4
 
 scriptdir=${BASH_SOURCE%/*}
 echo $scriptdir
 cd ${scriptdir}
-
 
 BEGINTIME=`date`
 
@@ -32,5 +32,4 @@ mv *verbose.log browsertime-results/
 
 # Rename results folder.
 PRODUCT=`echo $SCRIPT | sed 's/.sh//'`
-DATESTAMP=`date --iso`
 mv browsertime-results browsertime-results-${DATESTAMP}-${PRODUCT}-${DEVICEID}
