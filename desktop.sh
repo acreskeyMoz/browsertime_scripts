@@ -8,7 +8,7 @@ REPO='/home/jesup/src/mozilla/pageload/'
 if test $PERF; then
     SCRIPT=${BASE}perf.sh
 else
-    SCRIPT=$FIREFOX_BINARY_LOCATION
+    SCRIPT=$FIREFOX_BINARY_PATH
 fi
 echo ./mach browsertime \
     --firefox.binaryPath=\'"$SCRIPT"\' \

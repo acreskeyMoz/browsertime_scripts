@@ -14,9 +14,10 @@ from subprocess import Popen, PIPE
 #        Measure pageload on the given site, n iterations
 
 # Customize these paths, or pass by argument
+browsertime_bin = './tools/browsertime/node_modules/browsertime/bin/browsertime.js'
 #browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
-#geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
-#android_serial='89PX0DD5Waa'
+geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
+android_serial='89PX0DD5Waa'
 
 def write_policies_json(location, policies_content):
     policies_file = os.path.join(location, "policies.json")
@@ -46,8 +47,8 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-v",
     "--verbose",
+    "-v",
     action="store_true",
     default=False,
     help="Verbose output and logs",
@@ -202,20 +203,12 @@ parser.add_argument(
     default=False,
     help="Restart adb between variants (workaround to adb file descriptor leak)",
 )
-parser.add_argument(
-    "--prefs",
-    help="prefs to use for all runs",
-)
+
 parser.add_argument(
     "--prefs_variant",
     help="prefs to use for a second run of everything",
 )
-parser.add_argument(
-    "--fullscreen",
-    action="store_true",
-    default=False,
-    help="Run test in full-screen",
-)
+
 parser.add_argument(
     "--log",
     help="MOZ_LOG values to set",
@@ -223,6 +216,7 @@ parser.add_argument(
 options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__)) + '/'
+print("Base: " + base)
 
 if options.reload:
     preload_script = os.path.join(base, 'reload.js')
@@ -235,7 +229,7 @@ else:
 
 log = options.log
 
-if options.hdmicapture and not options.fullscreen:
+if options.hdmicap and not options.fullscreen:
     print("************** WARNING: using --hdmicap without --fullscreen will give incorrect results!!!!", flush=True)
 
 
@@ -328,12 +322,12 @@ if options.debug:
 if options.visualmetrics:
     common_options += '--visualMetrics true --video true --visualMetricsContentful true --visualMetricsPerceptual true '
     common_options += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo false '
-    if options.hdmicapture:
-        common_args += '--videoParams.captureCardHostOS linux --videoParams.captureCardFilename /tmp/output.mp4 '
-        common_args += '--firefox.windowRecorder=false '
+    if options.hdmicap:
+        common_options += '--videoParams.captureCardHostOS linux --videoParams.captureCardFilename /tmp/output.mp4 '
+        common_options += '--firefox.windowRecorder=false '
     else:
         #XXX Add option for   --firefox.windowRecorder false
-        common_args += '--firefox.windowRecorder=true '
+        common_options += '--firefox.windowRecorder=true '
 else:
     common_options += '--visualMetrics false '
 
@@ -357,7 +351,7 @@ if options.desktop:
 
 if options.remoteAddr != None:
     # reference laptops are slow
-    common_args += '--selenium.url http://' + options.remoteAddr + ' ' + '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
+    common_options += '--selenium.url http://' + options.remoteAddr + ' ' + '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
 
 if options.wpr_host_ip != None:
     print("Adding WebPageReplay options", flush=True)
@@ -391,7 +385,7 @@ if options.mitm != None:
                 "mitmproxy-ca-cert.cer",
             )
         # browser_path is the exe, we want the folder
-        policies_dir = os.path.dirname(firefox_path)
+        policies_dir = os.path.dirname(firefox_binary_path)
         # on macosx we need to remove the last folders 'MacOS'
         # and the policies json needs to go in ../Content/Resources/
         # WARNING: we must clean it up on exit!
@@ -404,18 +398,18 @@ if options.mitm != None:
         write_policies_json(
             policies_dir,
             policies_content=POLICIES_CONTENT_ON
-            % {"cert": cert_path, "host": mitm, "port": 8080},
+            % {"cert": cert_path, "host": options.mitm, "port": 8080},
         )
     # else you must set up the proxy by hand!
     
     # start mitmproxy
     recordings = glob.glob(base + "../site_recordings/mitm/*.mp")
-    if verbose:
+    if options.verbose:
         print(str(recordings) + '\n',flush=True)
     mitmdump_args = [
 #        "mitmdump",
         "obj-opt/testing/mozproxy/mitmdump-5.1.1/mitmdump",
-        "--listen-host", mitm,
+        "--listen-host", options.mitm,
         "--listen-port", "8080",
         "-v",
         "--set",  "upstream_cert=false",
@@ -434,7 +428,7 @@ if options.mitm != None:
         ),
     ]
     print("****" + str(mitmdump_args) + '\n', flush=True)
-    if verbose:
+    if options.verbose:
         mitmout = open(base + "mitm.output", 'w')
     else:
         mitmout = open("/dev/null", 'w')
@@ -452,8 +446,22 @@ def main():
         url_arg = '--browsertime.url \"' + url + '\" '
         result_arg = '--resultDir "' + os.path.join(output_path, cleanUrl(url))
 
-        for variant_num, variant in enumerate(variants_import.variants):
+        variant_prefs_list = [""]
+        if options.prefs_variant != None:
+            variant_args = ""
+            wordlist = options.prefs_variant.split()
+            for pref in wordlist:
+                variant_args += '--firefox.preference ' + pref + ' '
+                if options.verbose:
+                    print('Added variant "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+                    # add more variants
+            variant_prefs_list = ["", variant_args]
+
+        for variant_prefs in variant_prefs_list:
+          for variant_num, variant in enumerate(variants_import.variants):
             name = variant[0]
+            if variant_prefs != "":
+                name += "_plus_prefs"
             script = variant[1]
 
             if options.desktop:
@@ -481,8 +489,9 @@ def main():
                     print(install_cmd)
                     os.system(install_cmd)
 
-            completeCommand = env + ' bash ' + script + ' ' + common_options  + ' ' + preload_script +  ' ' + variant_options + url_arg + os.path.join(result_arg, name) +'" '
-            print( "\ncommand " + completeCommand)
+            completeCommand = env + env_perf + ' bash ' + (base+script) + ' ' + common_options  + ' ' + variant_prefs + ' ' + preload_script +  ' ' + variant_options + url_arg + os.path.join(result_arg, name) +'" '
+            if options.verbose:
+                print( "\ncommand " + completeCommand, flush=True)
 
             print_progress(site_count, len(variants_import.variants), site_num, variant_num)
             os.system(completeCommand)
@@ -514,5 +523,5 @@ if __name__=="__main__":
    write_policies_json(
        policies_dir,
        policies_content=POLICIES_CONTENT_OFF
-       % {"cert": cert_path, "host": mitm, "port": 8080},
+       % {"cert": cert_path, "host": options.mitm, "port": 8080},
    )
