@@ -1,7 +1,8 @@
 #!/bin/bash
+: PACKAGE ${PACKAGE:=org.mozilla.firefox}
 
-export adb_bin="~/.mozbuild/android-sdk-linux/platform-tools/adb"
-bash ./clear_apps.sh
+bash /home/jesup/src/mozilla/browsertime_on_android_scripts/stop_apps.sh
+export adb_bin="/home/jesup/.mozbuild/android-sdk-linux/platform-tools/adb"
 
 if [[ -n $ANDROID_SERIAL ]] ; then
     DEVICE_SERIAL_ARGS="--firefox.android.deviceSerial=$ANDROID_SERIAL --chrome.android.deviceSerial=$ANDROID_SERIAL"
@@ -20,12 +21,13 @@ $BROWSERTIME_BIN \
     --firefox.android.intentArgument=-a                             \
     --firefox.android.intentArgument=android.intent.action.VIEW     \
     --firefox.android.intentArgument=-d                             \
-    --firefox.android.intentArgument="$LAUNCH_URL"                  \
+    --firefox.android.intentArgument="data:,"                       \
     --firefox.android.intentArgument=--ez                           \
     --firefox.android.intentArgument=skipstartpane                  \
     --firefox.android.intentArgument=true                           \
     --browser firefox                                               \
     --firefox.binaryPath=/tmp/foo \
+    --firefox.profileTemplate=/home/jesup/src/mozilla/browsertime_on_android_scripts/fennec.profile \
     $DEVICE_SERIAL_ARGS                                             \
   "$@"
 

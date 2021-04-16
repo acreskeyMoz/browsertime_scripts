@@ -1,7 +1,9 @@
 #!/bin/bash
 
-export adb_bin="~/.mozbuild/android-sdk-linux/platform-tools/adb"
-bash ./clear_apps.sh
+: PACKAGE ${PACKAGE:=org.mozilla.firefox}
+
+bash /home/jesup/src/mozilla/browsertime_on_android_scripts/clear_apps.sh
+export adb_bin="/home/jesup/.mozbuild/android-sdk-linux/platform-tools/adb"
 
 if [[ -n $ANDROID_SERIAL ]] ; then
     DEVICE_SERIAL_ARGS="--firefox.android.deviceSerial=$ANDROID_SERIAL --chrome.android.deviceSerial=$ANDROID_SERIAL"
@@ -16,13 +18,16 @@ $BROWSERTIME_BIN \
     --skipHar \
     --firefox.geckodriverPath="$GECKODRIVER_PATH" \
     --firefox.android.package "$PACKAGE" \
-    --firefox.android.activity "$PACKAGE.GeckoViewActivity" \
+    --firefox.android.activity "org.mozilla.fenix.IntentReceiverActivity" \
     --firefox.android.intentArgument=-a \
     --firefox.android.intentArgument=android.intent.action.VIEW \
     --firefox.android.intentArgument=-d \
-    --firefox.android.intentArgument="$LAUNCH_URL" \
+    --firefox.android.intentArgument="data:," \
     --browser firefox \
     --firefox.binaryPath=/tmp/foo \
+    --firefox.android.intentArgument=--ez \
+    --firefox.android.intentArgument=performancetest \
+    --firefox.android.intentArgument=true \
     $DEVICE_SERIAL_ARGS \
     "$@"
 
