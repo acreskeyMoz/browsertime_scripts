@@ -370,6 +370,10 @@ else:
 
 # Use mitmproxy?
 # XXX use mozproxy to avoid needing to download mitmproxy 5.1.1 and the dumped page load files
+# Doing a './mach raptor --browsertime --test imgur' will download mitmproxy 5.1.1
+# right now assumes you've used tooltool to download the relevant recordings and store them in ../site_recordings/mitm (and unzipped them there).
+# https://tooltool.mozilla-releng.net/static/index.html
+# you can find the right hashes to download by looking at the manifest files
 if options.mitm != None:
     common_options += '--firefox.preference network.dns.forceResolve:' + options.mitm + ' --firefox.preference network.socket.forcePort:"80=8080;443=8080"' + ' --firefox.acceptInsecureCerts true '
     if not options.remoteAddr:
