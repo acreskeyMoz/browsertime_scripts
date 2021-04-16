@@ -3,6 +3,9 @@ import importlib
 import os
 import sys
 import time
+import glob
+import subprocess
+from subprocess import Popen, PIPE
 
 # A script for larger browsertime performance experiments
 #   
@@ -15,8 +18,21 @@ import time
 #geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
 #android_serial='89PX0DD5Waa'
 
+def write_policies_json(location, policies_content):
+    policies_file = os.path.join(location, "policies.json")
+    
+    with open(policies_file, "w") as fd:
+        fd.write(policies_content)
+
+def normalize_path(path):
+    path = os.path.normpath(path)
+    if os.name == "Windows":
+        return path.replace("\\", "\\\\\\")
+    return path
+
 
 global options
+
 parser = argparse.ArgumentParser(
     description="",
     prog="run_test",
@@ -29,6 +45,13 @@ parser.add_argument(
     help="pass debugging flags to browsertime (-vvv)",
 )
 
+parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    default=False,
+    help="Verbose output and logs",
+)
 parser.add_argument(
     "-i",
     "-n",
@@ -56,8 +79,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--use_wpr",
-    help="connect to WPR replay IP",
+    "--wpr",
+    help="connect to WPR replay IP (ports 4040/4041)",
+)
+
+parser.add_argument(
+    "--mitm",
+    help="connect to mitmproxy IP (port 8080)",
 )
 
 parser.add_argument(
@@ -65,6 +93,11 @@ parser.add_argument(
     action="store_true",
     default=False,
     help="Desktop or mobile",
+)
+
+parser.add_argument(
+    "--preload",
+    help="preload script",
 )
 
 parser.add_argument(
@@ -183,7 +216,10 @@ parser.add_argument(
     default=False,
     help="Run test in full-screen",
 )
-
+parser.add_argument(
+    "--log",
+    help="MOZ_LOG values to set",
+)
 options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__)) + '/'
@@ -196,6 +232,12 @@ elif options.preload:
     preload_script = base + options.preload
 else:
     preload_script = os.path.join('preload_slim.js')
+
+log = options.log
+
+if options.hdmicapture and not options.fullscreen:
+    print("************** WARNING: using --hdmicap without --fullscreen will give incorrect results!!!!", flush=True)
+
 
 if options.variants != None:
     print('Using variant file ' + options.variants)
@@ -229,10 +271,29 @@ additional_prefs = options.prefs
 if additional_prefs != None:
     print("Additional_prefs = " + additional_prefs, flush=True)
 
-if options.use_wpr != None:
-    host_ip = options.use_wpr
-else:
-    host_ip = None
+# to install mitmproxy certificate into Firefox and turn on/off proxy
+POLICIES_CONTENT_ON = """{
+  "policies": {
+    "Certificates": {
+      "Install": ["%(cert)s"]
+    },
+    "Proxy": {
+      "Mode": "manual",
+      "HTTPProxy": "%(host)s:%(port)d",
+      "SSLProxy": "%(host)s:%(port)d",
+      "Passthrough": "%(host)s",
+      "Locked": true
+    }
+  }
+}"""
+POLICIES_CONTENT_OFF = """{
+  "policies": {
+    "Proxy": {
+      "Mode": "none",
+      "Locked": false
+    }
+  }
+}"""
 
 launch_url = "data:,"
 
@@ -253,9 +314,13 @@ else:
 if options.fullscreen:
     common_options += '--viewPort maximize '
 
+if log:
+    common_options += '--firefox.setMozLog ' + log + ' ' + '--firefox.collectMozLog '
+
 # Gecko profiling?
 if (options.profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" --firefox.geckoProfilerParams.bufferSize 100000000 '
+    # threads: ssl, cert, js
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf,ipcmessages" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,IPDL,Worker" --firefox.geckoProfilerParams.bufferSize 200000000 '
 
 if options.debug:
     common_options += '-vvv '
@@ -303,10 +368,77 @@ if options.perf:
 else:
     env_perf = ""
 
+# Use mitmproxy?
+# XXX use mozproxy to avoid needing to download mitmproxy 5.1.1 and the dumped page load files
+if options.mitm != None:
+    common_options += '--firefox.preference network.dns.forceResolve:' + options.mitm + ' --firefox.preference network.socket.forcePort:"80=8080;443=8080"' + ' --firefox.acceptInsecureCerts true '
+    if not options.remoteAddr:
+        # path for mitmproxy certificate, generated auto after mitmdump is started
+        # on local machine it is 'HOME', however it is different on production machines
+        try:
+            cert_path = os.path.join(
+                os.getenv("HOME"), ".mitmproxy", "mitmproxy-ca-cert.cer"
+            )
+        except Exception:
+            cert_path = os.path.join(
+                os.getenv("HOMEDRIVE"),
+                os.getenv("HOMEPATH"),
+                ".mitmproxy",
+                "mitmproxy-ca-cert.cer",
+            )
+        # browser_path is the exe, we want the folder
+        policies_dir = os.path.dirname(firefox_path)
+        # on macosx we need to remove the last folders 'MacOS'
+        # and the policies json needs to go in ../Content/Resources/
+        # WARNING: we must clean it up on exit!
+        if sys.platform == "darwin":
+            policies_dir = os.path.join(policies_dir[:-6], "Resources")
+        # for all platforms the policies json goes in a 'distribution' dir
+        policies_dir = os.path.join(policies_dir, "distribution")
+        if not os.path.exists(policies_dir):
+            os.makedirs(policies_dir)
+        write_policies_json(
+            policies_dir,
+            policies_content=POLICIES_CONTENT_ON
+            % {"cert": cert_path, "host": mitm, "port": 8080},
+        )
+    # else you must set up the proxy by hand!
+    
+    # start mitmproxy
+    recordings = glob.glob(base + "../site_recordings/mitm/*.mp")
+    if verbose:
+        print(str(recordings) + '\n',flush=True)
+    mitmdump_args = [
+#        "mitmdump",
+        "obj-opt/testing/mozproxy/mitmdump-5.1.1/mitmdump",
+        "--listen-host", mitm,
+        "--listen-port", "8080",
+        "-v",
+        "--set",  "upstream_cert=false",
+        "--set",  "websocket=false",
+#        "-k",
+#        "--server-replay-kill-extra",
+        "--script", base + "../site_recordings/mitm/alternate-server-replay.py",
+        "--set",
+        "server_replay_files={}".format(
+            ",".join(
+                [
+                    normalize_path(playback_file)
+                    for playback_file in recordings
+                ]
+            )
+        ),
+    ]
+    print("****" + str(mitmdump_args) + '\n', flush=True)
+    if verbose:
+        mitmout = open(base + "mitm.output", 'w')
+    else:
+        mitmout = open("/dev/null", 'w')
+    mitmpid = Popen(mitmdump_args, stdout=mitmout, stderr=mitmout).pid
+
 def main():
 
     site_count = len(open(sites).readlines())
-
     file = open(sites, 'r')
     for site_num, line in enumerate(file):
         url = line.strip()
@@ -375,3 +507,8 @@ def print_progress(site_count, num_variants, current_site, current_variant):
 
 if __name__=="__main__":
    main()
+   write_policies_json(
+       policies_dir,
+       policies_content=POLICIES_CONTENT_OFF
+       % {"cert": cert_path, "host": mitm, "port": 8080},
+   )
