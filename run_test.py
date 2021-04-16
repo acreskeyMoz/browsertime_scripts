@@ -2,11 +2,26 @@ import os
 import time
 import sys
 import argparse
+import glob
+import subprocess
+from subprocess import Popen, PIPE
 
 # A script for generating performance results from browsertime
 #  For each site in sites.txt
 #     For each app (name, script, package name, apk location, custom prefs)
 #        Measure pageload on the given site, n iterations
+
+def write_policies_json(location, policies_content):
+    policies_file = os.path.join(location, "policies.json")
+    
+    with open(policies_file, "w") as fd:
+        fd.write(policies_content)
+
+def normalize_path(path):
+    path = os.path.normpath(path)
+    if os.name == "Windows":
+        return path.replace("\\", "\\\\\\")
+    return path
 
 global options
 
@@ -19,6 +34,13 @@ parser.add_argument(
     action="store_true",
     default=False,
     help="pass debugging flags to browsertime (-vvv)",
+)
+parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    default=False,
+    help="Verbose output and logs",
 )
 parser.add_argument(
     "-i",
@@ -37,14 +59,22 @@ parser.add_argument(
     help="specific site",
 )
 parser.add_argument(
-    "--use_wpr",
-    help="connect to WPR replay IP",
+    "--wpr",
+    help="connect to WPR replay IP (ports 4040/4041)",
+)
+parser.add_argument(
+    "--mitm",
+    help="connect to mitmproxy IP (port 8080)",
 )
 parser.add_argument(
     "--reload",
     action="store_true",
     default=False,
     help="test reload of the URL",
+)
+parser.add_argument(
+    "--preload",
+    help="preload script",
 )
 parser.add_argument(
     "--condition",
@@ -114,7 +144,10 @@ parser.add_argument(
     default=False,
     help="Run test in full-screen",
 )
-
+parser.add_argument(
+    "--log",
+    help="MOZ_LOG values to set",
+)
 options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__)) + '/'
@@ -124,29 +157,42 @@ visualmetrics = options.visualmetrics
 hdmicapture = options.hdmicap
 iterations = options.iterations
 debug = options.debug
+verbose = options.verbose
 webrender = options.webrender
 profile = options.profile
 fullscreen = options.fullscreen
 additional_prefs = options.prefs
 additional_variant_prefs = options.prefs_variant
+log = options.log
+
+if hdmicapture and not fullscreen:
+    print("************** WARNING: using --hdmicap without --fullscreen will give incorrect results!!!!", flush=True)
+
 if options.sites != None:
     sites = options.sites
 else:
     sites = base + "sites.txt"
 
-if options.use_wpr != None:
-    host_ip = options.use_wpr
+if options.wpr != None:
+    host_ip = options.wpr
 else:
     host_ip = None
+
+if options.mitm != None:
+    mitm = options.mitm
+else:
+    mitm = None
 
 reload = False
 if options.reload:
     preload = base + 'reload.js'
     reload = True
 elif options.condition:
-    preload = base + 'preload_slim.js'
-else:
     preload = base + 'preload.js'
+elif options.preload:
+    preload = base + options.preload
+else:
+    preload = base + 'preload_slim.js'
     
 arm64=True
 desktop=options.desktop
@@ -162,6 +208,31 @@ geckodriver_path = base + 'geckodriver'
 # XXX Fix!
 browsertime_bin='/home/jesup/src/mozilla/pageload/tools/browsertime/node_modules/browsertime/bin/browsertime.js'
 adb_bin='~/.mozbuild/android-sdk-linux/platform-tools/adb'
+
+# to install mitmproxy certificate into Firefox and turn on/off proxy
+POLICIES_CONTENT_ON = """{
+  "policies": {
+    "Certificates": {
+      "Install": ["%(cert)s"]
+    },
+    "Proxy": {
+      "Mode": "manual",
+      "HTTPProxy": "%(host)s:%(port)d",
+      "SSLProxy": "%(host)s:%(port)d",
+      "Passthrough": "%(host)s",
+      "Locked": true
+    }
+  }
+}"""
+POLICIES_CONTENT_OFF = """{
+  "policies": {
+    "Proxy": {
+      "Mode": "none",
+      "Locked": false
+    }
+  }
+}"""
+
 
 # apk locations
 if (arm64):
@@ -187,9 +258,19 @@ if (desktop):
         firefox_path = './obj-opt/dist/bin/firefox'
     variants = [
         ('e10s', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, ' ')
-#        ('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.keepProcessesAlive.webIsolated.timed.max:0 ' )
-        ,('fission_cached', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true ' )
+        ,('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true ' )
+#        ,('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.keepProcessesAlive.webIsolated.timed.max:0 --firefox.preference dom.ipc.processPrelaunch.fission.number:1 ' )
+#        ,('fission_cached', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.processPrelaunch.fission.number:1 ' )
     ]
+
+#    variants = [
+#        ('e10s', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, ' --firefox.preference dom.ipc.processPrelaunch.delayMs:0  ')
+##        ('fission', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.keepProcessesAlive.webIsolated.timed.max:0 ' )
+#        ,('fission_0ms', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true  --firefox.preference dom.ipc.processPrelaunch.delayMs:0 ' )
+#        ,('fission_1000ms', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.processPrelaunch.delayMs:1000 ' )
+#        ,('fission_2000ms', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.processPrelaunch.delayMs:2000 ' )
+##        ,('fission_3000ms', base + 'desktop.sh', 'org.mozilla.firefox', fennec68_location,  preload, '--firefox.preference fission.autostart:true --firefox.preference dom.ipc.processPrelaunch.delayMs:3000 ' )
+#    ]
 else:
   variants = [
     ('fenix_02_28_preload', base + 'fenix_release.sh', 'org.mozilla.firefox', fenix_beta_location,  preload, '' )
@@ -214,13 +295,13 @@ common_options = ' '
 # Restore the speculative connection pool that marionette disables
 common_options += '--firefox.preference network.http.speculative-parallel-limit:6 '
 
-if (webrender):
-    # Enable WebRender
-    print('webrender on', flush=True)
+if webrender:
     common_options += '--firefox.preference gfx.webrender.enabled:true '
 else:
-    # Disable WebRender
     common_options += '--firefox.preference gfx.webrender.force-disabled:true '
+
+if log:
+    common_options += '--firefox.setMozLog ' + log + ' ' + '--firefox.collectMozLog '
 
 # Disable extension
 #common_options += '--firefox.disableBrowsertimeExtension '
@@ -233,9 +314,77 @@ else:
 if host_ip != None:
     common_options += '--firefox.preference network.dns.forceResolve:' + host_ip + ' --firefox.preference network.socket.forcePort:"80=4040;443=4041"' + ' --firefox.acceptInsecureCerts true ' 
 
+# Use mitmproxy?
+# XXX use mozproxy to avoid needing to download mitmproxy 5.1.1 and the dumped page load files
+if mitm != None:
+    common_options += '--firefox.preference network.dns.forceResolve:' + mitm + ' --firefox.preference network.socket.forcePort:"80=8080;443=8080"' + ' --firefox.acceptInsecureCerts true '
+    if not remoteAddr:
+        # path for mitmproxy certificate, generated auto after mitmdump is started
+        # on local machine it is 'HOME', however it is different on production machines
+        try:
+            cert_path = os.path.join(
+                os.getenv("HOME"), ".mitmproxy", "mitmproxy-ca-cert.cer"
+            )
+        except Exception:
+            cert_path = os.path.join(
+                os.getenv("HOMEDRIVE"),
+                os.getenv("HOMEPATH"),
+                ".mitmproxy",
+                "mitmproxy-ca-cert.cer",
+            )
+        # browser_path is the exe, we want the folder
+        policies_dir = os.path.dirname(firefox_path)
+        # on macosx we need to remove the last folders 'MacOS'
+        # and the policies json needs to go in ../Content/Resources/
+        # WARNING: we must clean it up on exit!
+        if sys.platform == "darwin":
+            policies_dir = os.path.join(policies_dir[:-6], "Resources")
+        # for all platforms the policies json goes in a 'distribution' dir
+        policies_dir = os.path.join(policies_dir, "distribution")
+        if not os.path.exists(policies_dir):
+            os.makedirs(policies_dir)
+        write_policies_json(
+            policies_dir,
+            policies_content=POLICIES_CONTENT_ON
+            % {"cert": cert_path, "host": mitm, "port": 8080},
+        )
+    # else you must set up the proxy by hand!
+    
+    # start mitmproxy
+    recordings = glob.glob(base + "../site_recordings/mitm/*.mp")
+    if verbose:
+        print(str(recordings) + '\n',flush=True)
+    mitmdump_args = [
+#        "mitmdump",
+        "obj-opt/testing/mozproxy/mitmdump-5.1.1/mitmdump",
+        "--listen-host", mitm,
+        "--listen-port", "8080",
+        "-v",
+        "--set",  "upstream_cert=false",
+        "--set",  "websocket=false",
+#        "-k",
+#        "--server-replay-kill-extra",
+        "--script", base + "../site_recordings/mitm/alternate-server-replay.py",
+        "--set",
+        "server_replay_files={}".format(
+            ",".join(
+                [
+                    normalize_path(playback_file)
+                    for playback_file in recordings
+                ]
+            )
+        ),
+    ]
+    print("****" + str(mitmdump_args) + '\n', flush=True)
+    if verbose:
+        mitmout = open(base + "mitm.output", 'w')
+    else:
+        mitmout = open("/dev/null", 'w')
+    mitmpid = Popen(mitmdump_args, stdout=mitmout, stderr=mitmout).pid
+
 # Gecko profiling?
 if (profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features js,stackwalk,leaf --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,Socket,IO" --firefox.geckoProfilerParams.bufferSize 100000000 '
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 1  --firefox.geckoProfilerParams.features "js,stackwalk,leaf,ipcmessages" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,Socket,IPDL,Worker" --firefox.geckoProfilerParams.bufferSize 250000000 '
 
 def main():
     global variants
@@ -261,14 +410,16 @@ def main():
         wordlist = additional_prefs.split()
         for pref in wordlist:
             common_args += '--firefox.preference ' + pref + ' '
-            print('Added "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+            if verbose:
+                print('Added "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
 
     if additional_variant_prefs != None:
         variant_args = ""
         wordlist = additional_variant_prefs.split()
         for pref in wordlist:
             variant_args += '--firefox.preference ' + pref + ' '
-            print('Added variant "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
+            if verbose:
+                print('Added variant "' + '--firefox.preference ' + pref + ' ' + '"', flush=True)
         # add more variants
         additional_variants = []
 
@@ -277,18 +428,19 @@ def main():
             temp[5] = temp[5] + variant_args
             temp[0] += "_plus_prefs"
             additional_variants.append(tuple(temp))
-        print('Final prefs for : ' + temp[0] + ' ' + temp[5], flush=True)
         variants.extend(additional_variants)
-        for variant in variants:
-            print(variant[0], flush=True)
+        if verbose:
+            print('Final prefs for : ' + temp[0] + ' ' + temp[5], flush=True)
+            for variant in variants:
+                print(variant[0], flush=True)
             
 
     if (remoteAddr != None):
         common_args += '--selenium.url http://' + remoteAddr + ' '
-        common_args += common_options + '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
+        common_args += '--timeouts.pageLoad 60000 --timeouts.pageCompleteCheck 60000 '
 
     if (visualmetrics):
-        common_args += '--visualMetrics=true --video=true '
+        common_args += '--visualMetrics=true --visualMetricsContentful=true --visualMetricsPerceptual=true --video=true '
         common_args += '--videoParams.addTimer false --videoParams.createFilmstrip false --videoParams.keepOriginalVideo true '
         if desktop:
             if hdmicapture:
@@ -324,7 +476,8 @@ def main():
                 os.system(install_cmd)
 
             completeCommand = env + ' bash ' + script + ' ' + common_args + preload + ' ' + options + url_arg + result_arg + name +'" '
-            print( "\ncommand " + completeCommand, flush=True)
+            if verbose:
+                print( "\ncommand " + completeCommand, flush=True)
             os.system(completeCommand)
 
 
@@ -340,3 +493,8 @@ def cleanUrl(url):
 
 if __name__=="__main__":
    main()
+   write_policies_json(
+       policies_dir,
+       policies_content=POLICIES_CONTENT_OFF
+       % {"cert": cert_path, "host": mitm, "port": 8080},
+   )
