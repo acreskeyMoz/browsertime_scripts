@@ -28,7 +28,7 @@ echo "begin: $BEGINTIME"
 echo "end: $ENDTIME"
 
 # Move verbose logs into results folder.
-mv *verbose.log browsertime-results/
+mv *.log browsertime-results/
 
 # Rename results folder.
 PRODUCT=`echo $SCRIPT | sed 's/.sh//'`

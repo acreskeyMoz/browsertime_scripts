@@ -40,7 +40,7 @@ echo "shortened top level domain: $TLD"
 
 OUTPUTBASE="browsertime-chrome"
 OUTPUTNAME="${OUTPUTBASE}-${TLD}"
-LOGVERBF="${OUTPUTNAME}-verbose.log"
+LOGVERBF="${OUTPUTNAME}.log"
 
 
 ITERATIONS=10

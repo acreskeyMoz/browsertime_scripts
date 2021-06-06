@@ -19,7 +19,7 @@ if [ "$DEVICEID" -eq "4" ]; then
     ANDROID_SERIAL=956AX0EZEZ #pixel3xl
 fi
 if [ "$DEVICEID" -eq "6" ]; then
-    ANDROID_SERIAL=ce0516059d33130f04 #s7 SFO
+    ANDROID_SERIAL=ce12160cf80eb22504
 fi
 
 # ANDROID_SERIAL=ce12160cf80eb22504 #s7 devpac
@@ -34,7 +34,7 @@ echo "shortened top level domain: $TLD"
 
 OUTPUTBASE="browsertime-fenix-nightly"
 OUTPUTNAME="${OUTPUTBASE}-${TLD}"
-LOGVERBF="${OUTPUTNAME}-verbose.log"
+LOGVERBF="${OUTPUTNAME}.log"
 
 
 ITERATIONS=10
