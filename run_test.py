@@ -63,7 +63,7 @@ parser.add_argument(
 parser.add_argument(
     "--webrender",
     action="store_true",
-    default=False,
+    default=True,
     help="Enable webrender (default: disabled)",
 )
 
