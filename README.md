@@ -7,6 +7,7 @@ Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fe
 ## Usage ##
 
 • Clone the browsertime repo, https://github.com/sitespeedio/browsertime
+        • run `npm install`
 
 • Download the latest `geckodriver` release: https://github.com/mozilla/geckodriver/releases
 
@@ -17,6 +18,8 @@ Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fe
         • browsertime_bin (point to bin/browsertime.js within the newly cloned browsertime repo)
         • geckodriver_path (point to the geckodriver binary you just downloaded)
 
+• If you're running on android, configure `android_serial` within `run_test.py`
+
 • Configure the browser variants you'd like to compare. These can be seperate binaries or else preferences.
 
   See `variants_android.py` or `variants_desktop.py` for examples.
@@ -25,6 +28,7 @@ Supports Firefox and Chrome desktop and android apps (e.g. geckoview_example, fe
 
         variants = [('fenix', 'fenix.sh', 'org.mozilla.fenix', fenix_nightly_location, ''),
                     ('fenix_h3', 'fenix.sh', 'org.mozilla.fenix', fenix_nightly_location, ' --firefox.preference network.http.http3.enabled:true' )]
+        This will include specifying paths the binaries you which to test.
   
 • Configure the sites you'd like tested in `sites.txt` or create a new sites text file and specify `--sites my_sites.txt`
 
