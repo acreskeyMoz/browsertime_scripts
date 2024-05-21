@@ -11,10 +11,12 @@ import time
 #        Measure pageload on the given site, n iterations
 
 # Customize these paths, or pass by argument
-browsertime_bin='/Users/acreskey/tools/browsertime/bin/browsertime.js'
-geckodriver_path='/Users/acreskey/dev/gecko-driver/0.26/geckodriver'
-android_serial='89PX0DD5Waa'
-
+default_firefox_binary_path='/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
+browsertime_bin='/Users/acreskey/tools/browsertime_tests/browsertime/bin/browsertime.js'
+#geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver.0.34.0/geckodriver'
+geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver_marc_fix/geckodriver'
+#android_serial='89PX0DD5W'
+android_serial='R5CW33A9FPA'
 
 global options
 parser = argparse.ArgumentParser(
@@ -64,7 +66,7 @@ parser.add_argument(
     "--webrender",
     action="store_true",
     default=True,
-    help="Enable webrender (default: disabled)",
+    help="Enable webrender (default: enabled)",
 )
 
 parser.add_argument(
@@ -139,6 +141,49 @@ parser.add_argument(
     help="Restart adb between variants (workaround to adb file descriptor leak)",
 )
 
+
+parser.add_argument(
+    "--perfstats",
+    action="store_true",
+    default=False,
+    help="Collect PerfStats",
+)
+
+parser.add_argument(
+    "--android_app_storage",
+    action="store_true",
+    default=False,
+    help="Set geckodriver android app storage to true ",
+)
+
+parser.add_argument(
+    "--android_sdcard_storage",
+    action="store_true",
+    default=False,
+    help="Set geckodriver android sdcard storage to true ",
+)
+
+parser.add_argument(
+    "--moz_logs",
+    action="store_true",
+    default=False,
+    help="Collect moz logs ",
+)
+
+parser.add_argument(
+    "--chromelogs",
+    action="store_true",
+    default=False,
+    help="Enable chrome logs, --chrome.collectPerfLog --chrome.collectNetLog ",
+)
+
+parser.add_argument(
+    "--chrometrace",
+    action="store_true",
+    default=False,
+    help="Enable chrome trace ",
+)
+
 options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__))
@@ -189,8 +234,8 @@ common_options = '--pageCompleteWaitTime 10000 '
 # Use the parent process initiated pagedload instead of window.location writes
 common_options += '--webdriverPageload true '
 
-# Restore the speculative connection pool that marionette disables
-common_options += '--firefox.preference network.http.speculative-parallel-limit:6 '
+# flush DNS, where possible
+common_options += '--flushDNS true '
 
 if options.webrender:
     print("Enabling WebRender", flush=True)
@@ -230,14 +275,37 @@ if options.desktop:
     if options.binarypath != None:
         firefox_binary_path = options.binarypath
     else:
-        firefox_binary_path = '/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
+        firefox_binary_path = default_firefox_binary_path
+
+if options.perfstats:
+    print("Capturing PerfStats")
+    common_options += '--firefox.perfStats '
 
 if options.wpr_host_ip != None:
     print("Adding WebPageReplay options", flush=True)
     common_options += '--firefox.preference network.dns.forceResolve:' + options.wpr_host_ip + ' --firefox.preference network.socket.forcePort:"80=4040;443=4041"' + ' --firefox.acceptInsecureCerts true '
 
-def main():
+if options.android_app_storage:
+    print("Enabling geckodriverArgs android-storage app")
+    common_options += '--firefox.geckodriverArgs="--android-storage" --firefox.geckodriverArgs="app" '
 
+if options.android_sdcard_storage:
+    print("Enabling geckodriverArgs android-storage sdcard")
+    common_options += '--firefox.geckodriverArgs="--android-storage" --firefox.geckodriverArgs="sdcard" '
+
+if options.moz_logs:
+    print("Collecting mozlogs")
+    common_options += '--firefox.collectMozLog --firefox.setMozLog="timestamp,nsHttp:5,nsHostResolver:5,cache2:5,nsSocketTransport:5,socket,NetworkPredictor:5,nsIOService:5,profilermarkers:5" '
+
+if options.chromelogs:
+    print("Enabling Chrome perf logs")
+    common_options += '--chrome.collectPerfLog --chrome.collectNetLog '
+
+if options.chrometrace:
+    print("Collect Chrome traces")
+    common_options += '--chrome.traceCategories="disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.frame,disabled-by-default-devtools.timeline.stack,disabled-by-default-v8.compile,disabled-by-default-lighthouse"  '
+
+def main():
     site_count = len(open(sites).readlines())
 
     file = open(sites, 'r')
@@ -254,7 +322,7 @@ def main():
             script = variant[1]
 
             if options.desktop:
-                env = 'env FIREFOX_BINARY_PATH="%s" GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(firefox_binary_path, geckodriver_path, browsertime_bin, launch_url)
+                env = 'env GLEAN_DEBUG_VIEW_TAG=browsertimetest FIREFOX_BINARY_PATH="%s" GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(firefox_binary_path, geckodriver_path, browsertime_bin, launch_url)
                 variant_options = variant[2]
                 print('Starting ' + firefox_binary_path + ' with arguments ' + variant_options)
             else:
