@@ -11,7 +11,9 @@ import time
 #        Measure pageload on the given site, n iterations
 
 # Customize these paths, or pass by argument
-default_firefox_binary_path='/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
+#default_firefox_binary_path='/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
+default_firefox_binary_path='/Users/acreskey/dev/mc3/obj-ff-dbg/dist/Nightly.app/Contents/MacOS/firefox'
+
 browsertime_bin='/Users/acreskey/tools/browsertime_tests/browsertime/bin/browsertime.js'
 #geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver.0.34.0/geckodriver'
 geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver_marc_fix/geckodriver'
