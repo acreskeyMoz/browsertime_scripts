@@ -72,6 +72,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--flushdns",
+    action="store_true",
+    default=False,
+    help="Flush DNS between runs, desktop only (default: disabled)",
+)
+
+parser.add_argument(
     "--fullscreen",
     action="store_true",
     default=False,
@@ -236,8 +243,10 @@ common_options = '--pageCompleteWaitTime 10000 '
 # Use the parent process initiated pagedload instead of window.location writes
 common_options += '--webdriverPageload true '
 
-# flush DNS, where possible
-common_options += '--flushDNS true '
+# flush DNS (desktop only)
+if options.flushdns:
+    print("Flushing DNS", flush=True)
+    common_options += '--flushDNS true '
 
 if options.webrender:
     print("Enabling WebRender", flush=True)
@@ -250,7 +259,7 @@ if options.fullscreen:
 
 # Gecko profiling?
 if (options.profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,socket,url,cert,js" '
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,TRR,DNS,socket,url,cert,js" '
 
 if options.debug:
     common_options += '-vvv '
@@ -297,7 +306,7 @@ if options.android_sdcard_storage:
 
 if options.moz_logs:
     print("Collecting mozlogs")
-    common_options += '--firefox.collectMozLog --firefox.setMozLog="timestamp,nsHttp:5,nsHostResolver:5,cache2:5,nsSocketTransport:5,socket,NetworkPredictor:5,nsIOService:5,profilermarkers:5" '
+    common_options += '--firefox.collectMozLog --firefox.setMozLog="timestamp,nsHttp:5,nsHostResolver:5,cache2:5,socket,nsIOService:5,profilermarkers:5" '
 
 if options.chromelogs:
     print("Enabling Chrome perf logs")
