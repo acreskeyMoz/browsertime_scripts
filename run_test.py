@@ -12,11 +12,18 @@ import time
 
 # Customize these paths, or pass by argument
 #default_firefox_binary_path='/Applications/Firefox Nightly.app/Contents/MacOS/firefox'
-default_firefox_binary_path='/Users/acreskey/dev/mc3/obj-ff-dbg/dist/Nightly.app/Contents/MacOS/firefox'
+#default_firefox_binary_path='/Users/acreskey/dev/mc3/obj-ff-dbg/dist/Nightly.app/Contents/MacOS/firefox'
+#default_firefox_binary_path='/Users/acreskey/dev/mozilla-central2/obj-ff/dist/NightlyDebug.app/Contents/MacOS/firefox'
 
-browsertime_bin='/Users/acreskey/tools/browsertime_tests/browsertime/bin/browsertime.js'
+#default_firefox_binary_path='/Users/acreskey/dev/firefox3/firefox/objdir-mac/dist/Nightly.app/Contents/MacOS/firefox'
+default_firefox_binary_path='/Users/acreskey/dev/firefox4/firefox/obj-mac-opt/dist/Nightly.app/Contents/MacOS/firefox'
+
+browsertime_bin='/Users/acreskey/tools/browsertime/browsertime/bin/browsertime.js'
+#browsertime_bin='/Users/acreskey/tools/browsertime_tests/browsertime/bin/browsertime.js'
 #geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver.0.34.0/geckodriver'
-geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver_marc_fix/geckodriver'
+#geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver_marc_fix/geckodriver'
+#geckodriver_path='/Users/acreskey/tools/browsertime_tests/geckodriver_marc_fix_2025/geckodriver'
+geckodriver_path='/Users/acreskey/dev/firefox3/firefox/tools/browsertime/node_modules/@sitespeed.io/geckodriver/vendor/geckodriver'
 #android_serial='89PX0DD5W'
 android_serial='R5CW33A9FPA'
 
@@ -112,6 +119,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--subnav",
+    help="Use a sub-navigation script (e.g. subnav_538.js)",
+)
+
+parser.add_argument(
     "--condition",
     action="store_true",
     default=False,
@@ -197,7 +209,9 @@ options = parser.parse_args()
 
 base = os.path.dirname(os.path.realpath(__file__))
 
-if options.reload:
+if options.subnav:
+    preload_script = os.path.join(base, options.subnav)
+elif options.reload:
     preload_script = os.path.join(base, 'reload.js')
 elif options.condition:
     preload_script = os.path.join(base, 'preload.js')
@@ -243,6 +257,13 @@ common_options = '--pageCompleteWaitTime 10000 '
 # Use the parent process initiated pagedload instead of window.location writes
 common_options += '--webdriverPageload true '
 
+common_options += '--firefox.disableSafeBrowsing false '
+common_options += '--firefox.disableTrackingProtection false '
+
+# Match shipping configuration: the connectivity service is enabled in the wild but
+# off in browsertime's default profile, which changes DNS/Happy Eyeballs behaviour.
+common_options += '--firefox.preference network.connectivity-service.enabled:true '
+
 # flush DNS (desktop only)
 if options.flushdns:
     print("Flushing DNS", flush=True)
@@ -259,7 +280,15 @@ if options.fullscreen:
 
 # Gecko profiling?
 if (options.profile):
-    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "java,js,stackwalk,leaf" --firefox.geckoProfilerParams.threads "GeckoMain,Compositor,ssl,TRR,DNS,socket,url,cert,js" '
+    # On Android the "java" feature is what surfaces the GeckoView Java side as
+    # the "AndroidUI (JVM)" thread, which is where GeckoSession.onLoadRequest
+    # markers land. Without it the Java<->Gecko wait before
+    # nsHttpChannel::AsyncOpen can be seen but not attributed.
+    features = "stackwalk,leaf" if options.desktop else "stackwalk,leaf,java"
+    threads = "GeckoMain,Compositor,ssl,TRR,DNS,socket,url,cert,js"
+    if not options.desktop:
+        threads += ",AndroidUI"
+    common_options += '--firefox.geckoProfiler true --firefox.geckoProfilerParams.interval 10  --firefox.geckoProfilerParams.features "%s" --firefox.geckoProfilerParams.threads "%s" ' % (features, threads)
 
 if options.debug:
     common_options += '-vvv '
@@ -305,8 +334,44 @@ if options.android_sdcard_storage:
     common_options += '--firefox.geckodriverArgs="--android-storage" --firefox.geckodriverArgs="sdcard" '
 
 if options.moz_logs:
-    print("Collecting mozlogs")
-    common_options += '--firefox.collectMozLog --firefox.setMozLog="timestamp,nsHttp:5,nsHostResolver:5,cache2:5,socket,nsIOService:5,profilermarkers:5" '
+    # Networking log modules of interest. (note: "profilermarkers" is NOT a real
+    # module -- log->marker routing is automatic when the profiler is running.)
+    log_modules = ["nsHttp:5", "nsHostResolver:5", "cache2:5", "nsSocketTransport:5",
+                   "NetworkConnectivityService:5", "neqo:5", "nsIOService:5"]
+    if options.desktop:
+        # Desktop: collectMozLog writes MOZ_LOG to a file and pulls it back.
+        print("Collecting moz logs (desktop -> file)")
+        common_options += '--firefox.collectMozLog --firefox.setMozLog="timestamp,%s" ' % ",".join(log_modules)
+    else:
+        # Android/Fenix: collectMozLog is a no-op (browsertime only sets MOZ_LOG on the
+        # node host, never on the device). With the Gecko profiler running (--profile),
+        # each log statement on a profiled thread is recorded as a profiler marker and
+        # pulled back off the device in the gecko profile.
+        #
+        # Two routes are needed, because they reach different processes:
+        #   1. --firefox.env -> geckodriver writes it into the device's
+        #      geckoview-config.yaml `env:` block. This reaches the CHILD (content)
+        #      processes, but it is applied to the parent too LATE: NSPR latches MOZ_LOG
+        #      once, very early in parent startup, before the config-file env is in place.
+        #      Result: only content-side channel logs are captured, and every parent-only
+        #      module (neqo, nsHostResolver, NetworkConnectivityService, nsIOService) is
+        #      missing -- which is exactly where the HTTP/3 + Happy Eyeballs connection
+        #      logging lives.
+        #   2. env0 intent extra -> GeckoThread applies it via setupGeckoEnvironment at
+        #      the very start of process init (before mozglue/NSPR), so the PARENT gets
+        #      MOZ_LOG in time. This is the only route that reaches the parent.
+        # We set both: env0 for the parent, --firefox.env for the children.
+        moz_log = "timestamp,%s" % ",".join(log_modules)
+        print("Collecting moz logs on Android via MOZ_LOG -> profiler markers")
+        if not options.profile:
+            print("WARNING: --moz_logs on Android requires --profile to capture markers")
+        # N.B.: yargs only parses --firefox.android.intentArgument with the `=` form.
+        # env0 is read by GeckoThread.getEnvFromExtras and applied as a full NAME=VALUE
+        # assignment, so it must be the whole "MOZ_LOG=..." string.
+        common_options += '--firefox.env="MOZ_LOG=%s" ' % moz_log
+        common_options += '--firefox.android.intentArgument=--es '
+        common_options += '--firefox.android.intentArgument=env0 '
+        common_options += '--firefox.android.intentArgument="MOZ_LOG=%s" ' % moz_log
 
 if options.chromelogs:
     print("Enabling Chrome perf logs")
@@ -347,6 +412,7 @@ def main():
                     os.system('adb devices')
 
                 env = 'env ANDROID_SERIAL=%s PACKAGE=%s GECKODRIVER_PATH=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, geckodriver_path, browsertime_bin, launch_url)
+                #env = 'env ANDROID_SERIAL=%s PACKAGE=%s BROWSERTIME_BIN=%s LAUNCH_URL=%s' %(android_serial, package_name, browsertime_bin, launch_url)
                 print('Starting ' + name + ', ' + package_name + ', from ' + apk_location + ' with arguments ' + variant_options)
                 if apk_location:
                     uninstall_cmd = 'adb uninstall ' + package_name
